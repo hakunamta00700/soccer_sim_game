@@ -1,0 +1,168 @@
+{
+  "team_name": "철벽 수비 FC",
+  "formation": "1-4-4-2",
+  "players": [
+    {
+      "player_id": 1,
+      "name": "골키퍼",
+      "position": "GK",
+      "stats": {
+        "PAS": 1,
+        "DRI": 1,
+        "SHO": 1,
+        "SPA": 2,
+        "TAC": 2,
+        "INT": 2,
+        "STA": 1
+      }
+    },
+    {
+      "player_id": 2,
+      "name": "수비수1",
+      "position": "DF",
+      "stats": {
+        "PAS": 1,
+        "DRI": 1,
+        "SHO": 1,
+        "SPA": 2,
+        "TAC": 2,
+        "INT": 2,
+        "STA": 1
+      }
+    },
+    {
+      "player_id": 3,
+      "name": "수비수2",
+      "position": "DF",
+      "stats": {
+        "PAS": 1,
+        "DRI": 1,
+        "SHO": 1,
+        "SPA": 2,
+        "TAC": 2,
+        "INT": 2,
+        "STA": 1
+      }
+    },
+    {
+      "player_id": 4,
+      "name": "수비수3",
+      "position": "DF",
+      "stats": {
+        "PAS": 1,
+        "DRI": 1,
+        "SHO": 1,
+        "SPA": 2,
+        "TAC": 2,
+        "INT": 2,
+        "STA": 1
+      }
+    },
+    {
+      "player_id": 5,
+      "name": "수비수4",
+      "position": "DF",
+      "stats": {
+        "PAS": 1,
+        "DRI": 1,
+        "SHO": 1,
+        "SPA": 2,
+        "TAC": 2,
+        "INT": 2,
+        "STA": 1
+      }
+    },
+    {
+      "player_id": 6,
+      "name": "미드필더1",
+      "position": "MF",
+      "stats": {
+        "PAS": 2,
+        "DRI": 1,
+        "SHO": 1,
+        "SPA": 1,
+        "TAC": 1,
+        "INT": 1,
+        "STA": 1
+      }
+    },
+    {
+      "player_id": 7,
+      "name": "미드필더2",
+      "position": "MF",
+      "stats": {
+        "PAS": 2,
+        "DRI": 1,
+        "SHO": 1,
+        "SPA": 1,
+        "TAC": 1,
+        "INT": 1,
+        "STA": 1
+      }
+    },
+    {
+      "player_id": 8,
+      "name": "미드필더3",
+      "position": "MF",
+      "stats": {
+        "PAS": 2,
+        "DRI": 1,
+        "SHO": 1,
+        "SPA": 1,
+        "TAC": 1,
+        "INT": 1,
+        "STA": 1
+      }
+    },
+    {
+      "player_id": 9,
+      "name": "미드필더4",
+      "position": "MF",
+      "stats": {
+        "PAS": 2,
+        "DRI": 1,
+        "SHO": 1,
+        "SPA": 1,
+        "TAC": 1,
+        "INT": 1,
+        "STA": 1
+      }
+    },
+    {
+      "player_id": 10,
+      "name": "공격수1",
+      "position": "FW",
+      "stats": {
+        "PAS": 1,
+        "DRI": 1,
+        "SHO": 2,
+        "SPA": 2,
+        "TAC": 1,
+        "INT": 1,
+        "STA": 1
+      }
+    },
+    {
+      "player_id": 11,
+      "name": "공격수2",
+      "position": "FW",
+      "stats": {
+        "PAS": 1,
+        "DRI": 1,
+        "SHO": 2,
+        "SPA": 2,
+        "TAC": 1,
+        "INT": 1,
+        "STA": 1
+      }
+    }
+  ],
+  "tactics": {
+    "attack": 3,
+    "pass_style": 2,
+    "pressing": 3,
+    "defense_line": 2,
+    "transition_speed": 3,
+    "width": 3
+  }
+}
