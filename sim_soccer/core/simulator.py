@@ -1,6 +1,7 @@
 """경기 시뮬레이션 메인 클래스"""
 
 import random
+import time
 from typing import Optional
 from uuid import uuid4
 
@@ -10,6 +11,7 @@ from sim_soccer.core.action_selector import ActionSelector
 from sim_soccer.core.contest_resolver import ContestResolver
 from sim_soccer.core.phase_manager import PhaseManager
 from sim_soccer.field.positioning import initialize_player_positions
+from sim_soccer.io.event_printer import EventPrinter
 from sim_soccer.models.events import EventLog
 from sim_soccer.models.match import MatchState
 from sim_soccer.models.team import TeamState
@@ -25,17 +27,20 @@ class MatchSimulator:
 
     TOTAL_TICKS = 5400  # 90분 = 5400초
     HALF_TIME_TICK = 2700  # 전반 종료 시점
+    REAL_TIME_DURATION = 60.0  # 실제 시간으로 60초 (1분)
 
-    def __init__(self, random_seed: Optional[int] = None):
+    def __init__(self, random_seed: Optional[int] = None, live_output: bool = False):
         """시뮬레이터 초기화
         
         Args:
             random_seed: 랜덤 시드 (재현 가능성을 위해)
+            live_output: 실시간 이벤트 출력 활성화 여부
         """
         self.resolver = ContestResolver()
         self.phase_manager = PhaseManager()
         self.action_selector = ActionSelector()
         self.random_seed = random_seed
+        self.event_printer = EventPrinter(enabled=live_output)
         
         if random_seed is not None:
             random.seed(random_seed)
@@ -46,6 +51,8 @@ class MatchSimulator:
         home_team: TeamState,
         away_team: TeamState,
         random_seed: Optional[int] = None,
+        live_output: Optional[bool] = None,
+        duration: float = 60.0,
     ) -> MatchState:
         """경기 시뮬레이션 실행
         
@@ -53,6 +60,8 @@ class MatchSimulator:
             home_team: 홈 팀 상태
             away_team: 원정 팀 상태
             random_seed: 랜덤 시드 (재현 가능성을 위해)
+            live_output: 실시간 출력 활성화 여부 (None이면 초기화 시 설정값 사용)
+            duration: 경기 진행 시간 (초 단위, 기본값: 60초)
         
         Returns:
             시뮬레이션 완료된 MatchState
@@ -60,6 +69,10 @@ class MatchSimulator:
         if random_seed is not None:
             random.seed(random_seed)
             self.random_seed = random_seed
+        
+        # live_output이 명시적으로 전달되면 업데이트
+        if live_output is not None:
+            self.event_printer.enabled = live_output
         
         # 초기 상태 설정
         match_state = MatchState(
@@ -92,14 +105,30 @@ class MatchSimulator:
             f"Match simulation started: {home_team.team_name} vs {away_team.team_name}"
         )
         
+        # 경기 시작 출력
+        self.event_printer.print_match_start(match_state)
+        
+        # 시간 제어를 위한 시작 시간 기록
+        start_time = time.time()
+        tick_duration = duration / self.TOTAL_TICKS  # 각 tick당 실제 시간
+        
         # Tick 단위 시뮬레이션
         for tick in range(self.TOTAL_TICKS):
             match_state.tick = tick
+            
+            # 시간 제어: 각 tick이 일정 시간에 걸쳐 진행되도록
+            if self.event_printer.enabled:  # live_output이 활성화된 경우만 시간 제어
+                expected_time = start_time + (tick * tick_duration)
+                current_time = time.time()
+                sleep_time = expected_time - current_time
+                if sleep_time > 0:
+                    time.sleep(sleep_time)
             
             # 전반/후반 구분
             if tick == self.HALF_TIME_TICK:
                 match_state.half = 2
                 self._apply_half_time_rest(match_state)
+                self.event_printer.print_half_time(match_state)
                 logger.info("Half time - Second half started")
             
             # Phase 처리 및 전환
@@ -238,10 +267,12 @@ class MatchSimulator:
                 defending_team.stats["tackles_successful"] += 1
         
         # 성공 시 상태 업데이트
+        is_goal = False
         if success:
             if action_type == "shoot":
                 # 슈팅 성공 시 골 확률 계산
-                if self._calculate_goal_probability(attacker, defender, attacking_team):
+                is_goal = self._calculate_goal_probability(attacker, defender, attacking_team)
+                if is_goal:
                     attacking_team.score += 1
                     attacking_team.momentum = update_momentum(
                         attacking_team.momentum, "goal_scored"
@@ -336,6 +367,38 @@ class MatchSimulator:
                 match_state.ball_holder = defending_gk.player_id
                 defending_gk.has_ball = True
                 attacking_team.set_ball_holder(None)
+        
+        # 실시간 이벤트 출력 (중요한 이벤트만)
+        if action_type == "shoot":
+            self.event_printer.print_action(
+                match_state.tick,
+                action_type,
+                attacker,
+                attacking_team,
+                success,
+                match_state,
+                is_goal=is_goal,
+            )
+        elif action_type in ["dribble", "tackle", "intercept"]:
+            self.event_printer.print_action(
+                match_state.tick,
+                action_type,
+                attacker if action_type != "tackle" else defender,
+                attacking_team if action_type != "tackle" else defending_team,
+                success,
+                match_state,
+            )
+        elif action_type in ["pass", "pass_long", "pass_to_midfield", "pass_to_forward"]:
+            # 패스는 파이널 서드에서만 출력
+            if match_state.current_phase == "final_third":
+                self.event_printer.print_action(
+                    match_state.tick,
+                    action_type,
+                    attacker,
+                    attacking_team,
+                    success,
+                    match_state,
+                )
 
     def _calculate_goal_probability(
         self,

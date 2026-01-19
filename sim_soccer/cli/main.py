@@ -45,11 +45,32 @@ def main():
         action="store_true",
         help="상세 로그 출력",
     )
+    parser.add_argument(
+        "--live",
+        "-l",
+        action="store_true",
+        help="실시간 이벤트 출력 (게임 같은 형식)",
+    )
+    parser.add_argument(
+        "--quiet",
+        "-q",
+        action="store_true",
+        help="로깅 출력 비활성화",
+    )
+    parser.add_argument(
+        "--duration",
+        "-d",
+        type=float,
+        default=60.0,
+        help="경기 진행 시간 (초 단위, 기본값: 60초)",
+    )
     
     args = parser.parse_args()
     
     # 로깅 설정
-    if args.verbose:
+    if args.quiet:
+        logger.remove()  # 모든 로거 제거
+    elif args.verbose:
         logger.add(sys.stderr, level="DEBUG")
     else:
         logger.add(sys.stderr, level="INFO")
@@ -64,8 +85,10 @@ def main():
         
         # 시뮬레이션 실행
         logger.info("Starting match simulation...")
-        simulator = MatchSimulator(random_seed=args.seed)
-        match_result = simulator.simulate_match(home_team, away_team, args.seed)
+        simulator = MatchSimulator(random_seed=args.seed, live_output=args.live)
+        match_result = simulator.simulate_match(
+            home_team, away_team, args.seed, live_output=args.live, duration=args.duration
+        )
         
         # 리포트 출력
         print_match_report(match_result)
