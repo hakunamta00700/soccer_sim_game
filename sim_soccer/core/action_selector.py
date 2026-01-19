@@ -183,6 +183,41 @@ class ActionSelector:
                 phase_players = get_players_by_phase(team, match_state.current_phase)
                 if phase_players:
                     attacker = phase_players[0]
+                else:
+                    # 그래도 없으면 임의의 선수 선택
+                    if team.players:
+                        attacker = team.players[0]
+        
+        # 패스의 경우 대상 선수도 선택 (패스 성공 시 사용)
+        pass_target = None
+        if action_type in ["pass", "pass_long", "pass_to_midfield", "pass_to_forward"]:
+            # Phase와 행동 타입에 따라 대상 Zone 결정
+            if action_type == "pass_to_forward":
+                target_zone = 14  # 중앙 전방
+            elif action_type == "pass_to_midfield":
+                target_zone = 8  # 중앙 중앙
+            elif match_state.current_phase == "final_third":
+                target_zone = 14
+            elif match_state.current_phase == "midfield":
+                target_zone = 8
+            else:
+                target_zone = 5
+            
+            # 대상 Zone의 선수 선택 (공격자가 아닌 선수)
+            target_players = get_players_in_zone(team, target_zone)
+            if target_players:
+                # 공격자가 아닌 선수 중 선택
+                candidates = [p for p in target_players if p.player_id != (attacker.player_id if attacker else -1)]
+                if candidates:
+                    pass_target = random.choice(candidates)
+                else:
+                    pass_target = target_players[0]
+            else:
+                # Zone에 선수가 없으면 가장 가까운 선수 선택
+                from sim_soccer.field.positioning import find_nearest_player
+                pass_target = find_nearest_player(
+                    team, target_zone, exclude_player_id=attacker.player_id if attacker else None
+                )
         
         # 수비자 선택 (필요한 경우)
         defender = None
@@ -200,5 +235,9 @@ class ActionSelector:
                 defender = find_nearest_player(
                     defending_team, match_state.ball_zone
                 )
+        
+        # 패스 대상 정보를 match_state에 저장 (나중에 사용)
+        if pass_target and action_type in ["pass", "pass_long", "pass_to_midfield", "pass_to_forward"]:
+            match_state._pass_target = pass_target  # 임시 저장
         
         return attacker, defender

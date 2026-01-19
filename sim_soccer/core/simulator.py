@@ -233,6 +233,8 @@ class MatchSimulator:
         match_state: MatchState,
     ):
         """행동 결과 적용"""
+        # 패스 대상 선수 정보 저장 (패스 출력 시 사용)
+        pass_target = getattr(match_state, '_pass_target', None)
         from sim_soccer.field.zone import FINAL_THIRD_ZONES
         
         # 체력 소모
@@ -309,23 +311,70 @@ class MatchSimulator:
             elif action_type in ["pass", "pass_long", "pass_to_midfield", "pass_to_forward"]:
                 # 패스 성공 시 볼 이동
                 if attacker:
-                    # 임시로 Phase에 따라 볼 위치 결정
-                    if match_state.current_phase == "final_third":
-                        target_zone = 14  # 중앙 전방
-                    elif match_state.current_phase == "midfield":
-                        target_zone = 8  # 중앙 중앙
-                    else:
-                        target_zone = 5  # 중앙 후중앙
+                    # action_selector에서 선택된 패스 대상 선수 사용
+                    target_player = getattr(match_state, '_pass_target', None)
                     
-                    match_state.ball_zone = target_zone
-                    # 해당 Zone의 선수에게 볼 전달
-                    from sim_soccer.field.positioning import get_players_in_zone
-                    target_players = get_players_in_zone(attacking_team, target_zone)
-                    if target_players:
-                        target_player = target_players[0]
+                    if not target_player:
+                        # 패스 대상이 없으면 Phase와 행동 타입에 따라 대상 Zone 결정
+                        if action_type == "pass_to_forward":
+                            target_zone = 14  # 중앙 전방 (공격수에게)
+                        elif action_type == "pass_to_midfield":
+                            target_zone = 8  # 중앙 중앙 (미드필더에게)
+                        elif match_state.current_phase == "final_third":
+                            target_zone = 14  # 중앙 전방
+                        elif match_state.current_phase == "midfield":
+                            target_zone = 8  # 중앙 중앙
+                        else:
+                            target_zone = 5  # 중앙 후중앙
+                        
+                        # 해당 Zone의 선수에게 볼 전달
+                        from sim_soccer.field.positioning import get_players_in_zone, find_nearest_player
+                        target_players = get_players_in_zone(attacking_team, target_zone)
+                        
+                        if target_players:
+                            # Zone에 선수가 있으면 그 중 하나 선택 (공격자가 아닌 선수 우선)
+                            for p in target_players:
+                                if p.player_id != attacker.player_id:
+                                    target_player = p
+                                    break
+                            if not target_player:
+                                target_player = target_players[0]  # 없으면 첫 번째 선수
+                        else:
+                            # Zone에 선수가 없으면 가장 가까운 선수 선택
+                            target_player = find_nearest_player(
+                                attacking_team, target_zone, exclude_player_id=attacker.player_id
+                            )
+                            if target_player:
+                                # 선수 위치를 target_zone으로 업데이트
+                                target_player.zone = target_zone
+                    
+                    if target_player:
+                        # 패스 대상 선수의 위치를 target_zone으로 업데이트 (패스로 이동)
+                        if not hasattr(match_state, '_pass_target') or match_state._pass_target != target_player:
+                            # action_selector에서 선택된 대상이 아니면 위치 업데이트
+                            if action_type == "pass_to_forward":
+                                target_zone = 14
+                            elif action_type == "pass_to_midfield":
+                                target_zone = 8
+                            elif match_state.current_phase == "final_third":
+                                target_zone = 14
+                            elif match_state.current_phase == "midfield":
+                                target_zone = 8
+                            else:
+                                target_zone = 5
+                            target_player.zone = target_zone
+                        
                         target_player.has_ball = True
                         match_state.ball_holder = target_player.player_id
+                        match_state.ball_zone = target_player.zone
                         attacker.has_ball = False
+                    else:
+                        # 대상 선수를 찾지 못한 경우 공격자가 계속 공을 가짐
+                        logger.warning("Could not find target player for pass")
+                    
+                    # 임시 저장된 패스 대상 정보 제거
+                    if hasattr(match_state, '_pass_target'):
+                        delattr(match_state, '_pass_target')
             
             elif action_type == "dribble":
                 # 드리블 성공 시 전방으로 이동 가능
@@ -349,14 +398,49 @@ class MatchSimulator:
         
         else:
             # 실패 시
-            if action_type in ["pass", "dribble"]:
-                # 패스/드리블 실패 시 공수 전환 가능성
-                if random.random() < 0.3:  # 30% 확률로 전환
+            if action_type in ["pass", "pass_long", "pass_to_midfield", "pass_to_forward"]:
+                # 패스 실패 시 공수 전환 (상대가 공을 획득)
+                match_state.switch_attacking_team()
+                match_state.current_phase = "transition"
+                attacking_team.momentum = update_momentum(
+                    attacking_team.momentum, "mistake"
+                )
+                # 상대 팀의 가장 가까운 선수에게 볼 전달
+                from sim_soccer.field.positioning import find_nearest_player
+                defending_player = find_nearest_player(
+                    defending_team, match_state.ball_zone
+                )
+                if defending_player:
+                    defending_player.has_ball = True
+                    match_state.ball_holder = defending_player.player_id
+                    match_state.ball_zone = defending_player.zone
+                    attacking_team.set_ball_holder(None)
+                else:
+                    # 수비 선수를 찾지 못한 경우 수비 팀 골키퍼에게
+                    defending_gk = defending_team.get_players_by_position("GK")[0]
+                    defending_gk.has_ball = True
+                    match_state.ball_holder = defending_gk.player_id
+                    match_state.ball_zone = defending_gk.zone
+                    attacking_team.set_ball_holder(None)
+            
+            elif action_type == "dribble":
+                # 드리블 실패 시 공수 전환 가능성
+                if random.random() < 0.4:  # 40% 확률로 전환
                     match_state.switch_attacking_team()
                     match_state.current_phase = "transition"
                     attacking_team.momentum = update_momentum(
                         attacking_team.momentum, "mistake"
                     )
+                    # 상대 팀의 가장 가까운 선수에게 볼 전달
+                    from sim_soccer.field.positioning import find_nearest_player
+                    defending_player = find_nearest_player(
+                        defending_team, match_state.ball_zone
+                    )
+                    if defending_player:
+                        defending_player.has_ball = True
+                        match_state.ball_holder = defending_player.player_id
+                        match_state.ball_zone = defending_player.zone
+                        attacking_team.set_ball_holder(None)
             
             elif action_type == "shoot":
                 # 슈팅 실패 시 골킥
@@ -389,16 +473,16 @@ class MatchSimulator:
                 match_state,
             )
         elif action_type in ["pass", "pass_long", "pass_to_midfield", "pass_to_forward"]:
-            # 패스는 파이널 서드에서만 출력
-            if match_state.current_phase == "final_third":
-                self.event_printer.print_action(
-                    match_state.tick,
-                    action_type,
-                    attacker,
-                    attacking_team,
-                    success,
-                    match_state,
-                )
+            # 패스 이벤트 출력 (모든 패스 출력)
+            self.event_printer.print_action(
+                match_state.tick,
+                action_type,
+                attacker,
+                attacking_team,
+                success,
+                match_state,
+                target_player=pass_target,
+            )
 
     def _calculate_goal_probability(
         self,

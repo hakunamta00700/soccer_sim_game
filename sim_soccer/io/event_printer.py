@@ -101,23 +101,28 @@ class EventPrinter:
         tick: int,
         player: Optional[PlayerState],
         team: TeamState,
+        target_player: Optional[PlayerState],
         success: bool,
         match_state: MatchState,
     ):
-        """패스 이벤트 출력 (주요 패스만)"""
+        """패스 이벤트 출력"""
         if not self.enabled:
             return
         
-        # 일반 패스는 너무 많으므로 출력하지 않음
-        # 중요한 패스만 출력 (예: 파이널 서드로의 패스)
-        if match_state.current_phase == "final_third":
-            time_str = self.format_time(tick)
-            player_info = self.format_player_info(player, team)
-            
-            if success:
-                print(f"{time_str} {player_info}가 위험한 패스를 성공했습니다!")
-            else:
-                print(f"{time_str} {player_info}의 패스가 실패했습니다...")
+        time_str = self.format_time(tick)
+        player_info = self.format_player_info(player, team)
+        
+        if target_player:
+            target_info = f"{target_player.player_id}번 선수({target_player.name})"
+        else:
+            target_info = "동료 선수"
+        
+        if success:
+            print(f"{time_str} {player_info}가 {target_info}에게 패스를 시도합니다...")
+            print(f"{time_str} 패스 성공! {target_info}가 공을 받았습니다.")
+        else:
+            print(f"{time_str} {player_info}가 {target_info}에게 패스를 시도합니다...")
+            print(f"{time_str} 패스 실패. 공을 잃었습니다.")
 
     def print_tackle(
         self,
@@ -186,6 +191,7 @@ class EventPrinter:
         success: bool,
         match_state: MatchState,
         is_goal: bool = False,
+        target_player: Optional[PlayerState] = None,
     ):
         """행동 이벤트 출력 (통합 메서드)"""
         if action_type == "dribble":
@@ -193,7 +199,7 @@ class EventPrinter:
         elif action_type == "shoot":
             self.print_shoot(tick, player, team, success, is_goal, match_state)
         elif action_type in ["pass", "pass_long", "pass_to_midfield", "pass_to_forward"]:
-            self.print_pass(tick, player, team, success, match_state)
+            self.print_pass(tick, player, team, target_player, success, match_state)
         elif action_type == "tackle":
             self.print_tackle(tick, player, team, success, match_state)
         elif action_type == "intercept":
