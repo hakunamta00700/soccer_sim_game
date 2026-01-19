@@ -14,22 +14,40 @@ def create_simple_team(team_name: str) -> TeamState:
     players = []
     positions = ["GK", "DF", "DF", "DF", "DF", "MF", "MF", "MF", "MF", "FW", "FW"]
     
+    # 총 100 포인트를 11명에게 분배
+    # 각 선수 기본 9 포인트 (9 × 11 = 99), 마지막 선수만 10 포인트 = 총 100
     for i, position in enumerate(positions, 1):
-        # 각 선수에게 평균적으로 포인트 분배 (총 100 포인트)
+        # 기본 스탯 (각 1) = 7 포인트
         stats = {
-            "PAS": 5,
-            "DRI": 5,
-            "SHO": 5,
-            "SPA": 5,
-            "TAC": 5,
-            "INT": 5,
-            "STA": 5,
+            "PAS": 1,
+            "DRI": 1,
+            "SHO": 1,
+            "SPA": 1,
+            "TAC": 1,
+            "INT": 1,
+            "STA": 1,
         }
-        # 포인트 조정 (총합이 100이 되도록)
-        if i == 1:  # 첫 번째 선수에 조금 더
-            stats["STA"] = 10
-        elif i == 11:  # 마지막 선수에 조금 더
-            stats["SHO"] = 10
+        
+        # 포지션별로 2 포인트 추가 (총 9 포인트)
+        if position == "GK":
+            stats["SPA"] = 2
+            stats["TAC"] = 2  # 7 + 2 = 9
+        elif position == "DF":
+            stats["SPA"] = 2
+            stats["TAC"] = 2  # 7 + 2 = 9
+        elif position == "MF":
+            stats["PAS"] = 2
+            stats["DRI"] = 2  # 7 + 2 = 9
+        else:  # FW
+            stats["DRI"] = 2
+            stats["SHO"] = 2  # 7 + 2 = 9
+        
+        # 마지막 선수만 추가 포인트 (총 10 포인트)
+        if i == 11:
+            if position == "FW":
+                stats["SHO"] = 3  # +1 (총 10)
+            else:
+                stats["STA"] = 2  # +1 (총 10)
         
         player = PlayerState(
             player_id=i,
@@ -82,14 +100,16 @@ def test_match_simulation_basic():
 
 def test_match_simulation_reproducibility():
     """시뮬레이션 재현성 테스트"""
-    home_team = create_simple_team("Home Team")
-    away_team = create_simple_team("Away Team")
-    
     simulator = MatchSimulator(random_seed=123)
     
-    # 같은 시드로 두 번 실행
-    result1 = simulator.simulate_match(home_team, away_team, random_seed=123)
-    result2 = simulator.simulate_match(home_team, away_team, random_seed=123)
+    # 같은 시드로 두 번 실행 (매번 새로운 팀 객체 생성)
+    home_team1 = create_simple_team("Home Team")
+    away_team1 = create_simple_team("Away Team")
+    result1 = simulator.simulate_match(home_team1, away_team1, random_seed=123)
+    
+    home_team2 = create_simple_team("Home Team")
+    away_team2 = create_simple_team("Away Team")
+    result2 = simulator.simulate_match(home_team2, away_team2, random_seed=123)
     
     # 결과가 동일해야 함
     assert result1.home_team.score == result2.home_team.score

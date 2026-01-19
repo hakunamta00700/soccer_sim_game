@@ -6,6 +6,8 @@ readme = "README.md"
 requires-python = ">=3.10"
 dependencies = [
     "loguru>=0.7.0",
+    "pytest>=9.0.2",
+    "pytest-cov>=7.0.0",
 ]
 
 [project.optional-dependencies]
@@ -23,7 +25,7 @@ testpaths = ["tests"]
 python_files = "test_*.py"
 python_classes = "Test*"
 python_functions = "test_*"
-addopts = "-v --cov=sim_soccer --cov-report=term-missing"
+addopts = "-v"
 
 [tool.black]
 line-length = 100

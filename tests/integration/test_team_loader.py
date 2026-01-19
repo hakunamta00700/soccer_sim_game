@@ -21,21 +21,40 @@ def create_test_team_json() -> dict:
     players = []
     positions = ["GK", "DF", "DF", "DF", "DF", "MF", "MF", "MF", "MF", "FW", "FW"]
     
+    # 총 100 포인트를 11명에게 분배
+    base_stats = {
+        "PAS": 1,
+        "DRI": 1,
+        "SHO": 1,
+        "SPA": 1,
+        "TAC": 1,
+        "INT": 1,
+        "STA": 1,
+    }
+    
     for i, position in enumerate(positions, 1):
-        stats = {
-            "PAS": 5,
-            "DRI": 5,
-            "SHO": 5,
-            "SPA": 5,
-            "TAC": 5,
-            "INT": 5,
-            "STA": 5,
-        }
-        # 포인트 조정
-        if i == 1:
-            stats["STA"] = 10
-        elif i == 11:
-            stats["SHO"] = 10
+        stats = base_stats.copy()
+        
+        # 포지션별 기본 스탯 조정 (각 선수 9 포인트)
+        if position == "GK":
+            stats["SPA"] = 2
+            stats["TAC"] = 2  # 7 + 2 = 9
+        elif position == "DF":
+            stats["SPA"] = 2
+            stats["TAC"] = 2  # 7 + 2 = 9
+        elif position == "MF":
+            stats["PAS"] = 2
+            stats["DRI"] = 2  # 7 + 2 = 9
+        else:  # FW
+            stats["DRI"] = 2
+            stats["SHO"] = 2  # 7 + 2 = 9
+        
+        # 마지막 선수만 추가 포인트 (총 10 포인트)
+        if i == 11:
+            if position == "FW":
+                stats["SHO"] = 3  # +1 (총 10)
+            else:
+                stats["STA"] = 2  # +1 (총 10)
         
         players.append(
             {
@@ -97,8 +116,10 @@ def test_load_team_invalid_player_count():
 def test_load_team_invalid_point_sum():
     """잘못된 포인트 합계 테스트"""
     team_data = create_test_team_json()
-    # 포인트 합계를 100이 아닌 값으로 변경
-    team_data["players"][0]["stats"]["STA"] = 20
+    # 포인트 합계를 100이 아닌 값으로 변경 (스탯 범위는 유지)
+    # 두 번째 선수의 STA를 2에서 3으로 올리면 총 포인트가 101이 됨
+    # (기본 9 포인트에서 +1)
+    team_data["players"][1]["stats"]["STA"] = 3  # +1 (총 10 포인트)
     
     with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False) as f:
         json.dump(team_data, f, ensure_ascii=False)

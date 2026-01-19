@@ -187,8 +187,8 @@ class MatchSimulator:
             action_type, success, attacker, defender, attacking_team, defending_team, match_state
         )
         
-        # 이벤트 로그 기록 (중요 이벤트만)
-        if self._is_important_event(action_type, success):
+        # 이벤트 로그 기록 (중요 이벤트만, 골은 별도로 로깅됨)
+        if self._is_important_event(action_type, success) and action_type != "shoot":
             self._log_event(
                 action_type, success, attacker, defender, attacking_team, match_state
             )
@@ -253,6 +253,18 @@ class MatchSimulator:
                         f"GOAL! {attacking_team.team_name} scores! "
                         f"(tick: {match_state.tick}, player: {attacker.name if attacker else 'Unknown'})"
                     )
+                    # 골 이벤트 로깅
+                    event = EventLog(
+                        tick=match_state.tick,
+                        phase=match_state.current_phase,
+                        event_type="goal",
+                        team="home" if attacking_team == match_state.home_team else "away",
+                        player_id=attacker.player_id if attacker else None,
+                        action="shoot",
+                        result="success",
+                        description=f"Goal scored by {attacker.name if attacker else 'Unknown'}",
+                    )
+                    match_state.add_event(event)
                     # 골 후 킥오프 (수비 팀이 공격 시작)
                     match_state.switch_attacking_team()
                     match_state.current_phase = "build_up"
@@ -354,8 +366,8 @@ class MatchSimulator:
 
     def _is_important_event(self, action_type: str, success: bool) -> bool:
         """중요한 이벤트인지 판정"""
-        important_actions = ["goal", "shoot", "tackle", "intercept"]
-        return action_type in important_actions or (action_type == "shoot" and success)
+        important_actions = ["shoot", "tackle", "intercept"]
+        return action_type in important_actions
 
     def _log_event(
         self,
